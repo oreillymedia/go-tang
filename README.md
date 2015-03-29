@@ -9,9 +9,9 @@ Go Tang is a dead simple golang + redis cache implementation that prevents the d
 ```go
 
 // make a function that the Fetch call should use to 
-// fill the cache. The function return a string value
-// for the cache, a ttl (so you can use the header max-age)
-// from http calls, etc, and an error if getting the valued failed.
+// fill the cache. The function returns a string value
+// for the cache, a ttl (so you can use the header max-age
+// from http calls, etc), and an error if something failed.
 block := func() (string, int, error) {
   return "myvalue", 5, nil // value, ttl, error
 }
