@@ -42,11 +42,27 @@ var _ = Describe("Fetch", func() {
 			v := strconv.Itoa(rand.Intn(50000))
 			return v, 5, nil
 		}
-		value1, err1 := gotang.Fetch("mykey", block, 1)
-		value2, err2 := gotang.Fetch("mykey", block, 1)
+		fetchedValue, err1 := gotang.Fetch("mykey", block, 1)
+		cachedValue, err2 := gotang.Fetch("mykey", block, 1)
 		Expect(err1).To(BeNil())
 		Expect(err2).To(BeNil())
-		Expect(value1).To(Equal(value2))
+		Expect(fetchedValue).To(Equal(cachedValue))
+	})
+
+	It("expires cache ttl returned in block", func() {
+		block := func() (string, int, error) {
+			v := strconv.Itoa(rand.Intn(50000))
+			return v, 1, nil
+		}
+		fetchedValue1, err1 := gotang.Fetch("mykey", block, 5)
+		cachedValue1, err2 := gotang.Fetch("mykey", block, 5)
+		time.Sleep(time.Duration(2) * time.Second)
+		fetchedValue2, err3 := gotang.Fetch("mykey", block, 5)
+		Expect(err1).To(BeNil())
+		Expect(err2).To(BeNil())
+		Expect(err3).To(BeNil())
+		Expect(fetchedValue1).To(Equal(cachedValue1))
+		Expect(fetchedValue1).ToNot(Equal(fetchedValue2))
 	})
 
 	// it prevents dog pile effect
