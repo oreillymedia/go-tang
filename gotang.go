@@ -30,12 +30,19 @@ func NewDisabled() *Cache {
 
 // all cache methods must adhere to this type
 // must return (cache value, ttl, error)
-type FetchBlock func() (string, time.Duration, error)
+type FetchBlock func() (string, int, error)
 
-func (c *Cache) Fetch(key string, block FetchBlock, fetchTime time.Duration) (string, error) {
+// Options to be used with the cache methods
+type Options struct {
+	Ttl       int
+	FetchTime int
+	Disabled  bool
+}
+
+func (c *Cache) Fetch(key string, block FetchBlock, opts Options) (string, error) {
 
 	// if disabled, just return block response
-	if c.Disabled {
+	if c.Disabled || opts.Disabled {
 		blockValue, _, blockErr := block()
 		return blockValue, blockErr
 	}
@@ -48,7 +55,7 @@ func (c *Cache) Fetch(key string, block FetchBlock, fetchTime time.Duration) (st
 	if stale == "" {
 
 		// update the stale key to make sure other requests server old cache
-		err := c.Client.PSetEx(c.stalekey(key), fetchTime, "refreshing").Err()
+		err := c.Client.PSetEx(c.stalekey(key), time.Duration(opts.FetchTime)*time.Second, "refreshing").Err()
 		if err != nil {
 			return "", err
 		}
@@ -72,7 +79,8 @@ func (c *Cache) Fetch(key string, block FetchBlock, fetchTime time.Duration) (st
 		// use the block result as return value
 		value = blockValue
 
-		setErr := c.Set(key, value, blockTtl, fetchTime)
+		opts.Ttl = blockTtl
+		setErr := c.Set(key, value, opts)
 		if setErr != nil {
 			return "", setErr
 		}
@@ -81,17 +89,17 @@ func (c *Cache) Fetch(key string, block FetchBlock, fetchTime time.Duration) (st
 	return value, nil
 }
 
-func (c *Cache) Set(key string, value string, ttl time.Duration, fetchTime time.Duration) error {
+func (c *Cache) Set(key string, value string, opts Options) error {
 
 	// set stale cache to just ttl so it triggers before cache
-	staleErr := c.Client.PSetEx(c.stalekey(key), ttl, "good").Err()
+	staleErr := c.Client.PSetEx(c.stalekey(key), time.Duration(opts.Ttl)*time.Second, "good").Err()
 	if staleErr != nil {
 		return staleErr
 	}
 
 	// set real cache to ttl plus fetch time
-	real_ttl := ttl + (fetchTime * 2)
-	realErr := c.Client.PSetEx(key, real_ttl, value).Err()
+	realTtl := opts.Ttl + (opts.FetchTime * 2)
+	realErr := c.Client.PSetEx(key, time.Duration(realTtl)*time.Second, value).Err()
 	if realErr != nil {
 		return realErr
 	}
