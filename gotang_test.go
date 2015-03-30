@@ -110,7 +110,7 @@ var _ = Describe("Fetch", func() {
 		Expect(<-messages).ToNot(Equal("oldvalue")) // first one
 	})
 
-	It("ignores caching if disabled is true", func() {
+	It("ignores caching if globally disabled", func() {
 		disabledCache := gotang.NewDisabled()
 		block := func() (string, int, error) {
 			v := strconv.Itoa(rand.Intn(50000))
@@ -118,6 +118,19 @@ var _ = Describe("Fetch", func() {
 		}
 		fetchedValue1, err1 := disabledCache.Fetch("mykey", block, gotang.Options{FetchTime: t * 3})
 		fetchedValue2, err2 := disabledCache.Fetch("mykey", block, gotang.Options{FetchTime: t * 3})
+		Expect(err1).To(BeNil())
+		Expect(err2).To(BeNil())
+		Expect(fetchedValue1).ToNot(Equal(fetchedValue2))
+	})
+
+	It("ignores caching if options disabled", func() {
+		block := func() (string, int, error) {
+			v := strconv.Itoa(rand.Intn(50000))
+			return v, t, nil
+		}
+		opts := gotang.Options{FetchTime: t * 3, Disabled: true}
+		fetchedValue1, err1 := cache.Fetch("mykey", block, opts)
+		fetchedValue2, err2 := cache.Fetch("mykey", block, opts)
 		Expect(err1).To(BeNil())
 		Expect(err2).To(BeNil())
 		Expect(fetchedValue1).ToNot(Equal(fetchedValue2))
