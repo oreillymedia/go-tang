@@ -8,7 +8,8 @@ import (
 
 // Main package struct to hold redis conn
 type Cache struct {
-	Client *redis.Client
+	Client   *redis.Client
+	Disabled bool
 }
 
 // constructor to get a new *gotang.Cache
@@ -20,11 +21,24 @@ func New(opts *redis.Options) *Cache {
 	return &c
 }
 
+// constructor to get a disabled *gotang.Cache
+// useful for development
+func NewDisabled() *Cache {
+	c := Cache{Disabled: true}
+	return &c
+}
+
 // all cache methods must adhere to this type
 // must return (cache value, ttl, error)
 type FetchBlock func() (string, time.Duration, error)
 
 func (c *Cache) Fetch(key string, block FetchBlock, fetchTime time.Duration) (string, error) {
+
+	// if disabled, just return block response
+	if c.Disabled {
+		blockValue, _, blockErr := block()
+		return blockValue, blockErr
+	}
 
 	// get both cache keys: The real one and the stale key
 	value, _ := c.Client.Get(key).Result()

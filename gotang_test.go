@@ -102,4 +102,15 @@ var _ = Describe("Fetch", func() {
 		Expect(<-messages).To(Equal("oldvalue"))    // second one
 		Expect(<-messages).ToNot(Equal("oldvalue")) // first one
 	})
+
+	It("ignores caching if disabled is true", func() {
+		disabledCache := gotang.NewDisabled()
+		block := func() (string, time.Duration, error) {
+			return "myvalue", t, nil
+		}
+		fetchedValue, err := disabledCache.Fetch("mykey", block, t*5)
+		Expect(err).To(BeNil())
+		Expect(fetchedValue).To(Equal("myvalue"))
+	})
+
 })
