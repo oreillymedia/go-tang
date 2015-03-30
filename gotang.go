@@ -6,26 +6,38 @@ import (
 	redis "gopkg.in/redis.v2"
 )
 
-// all cache methods must adhere to this type:
-type CacheBlock func() (string, int, error) // (value, ttl, error)
+// Main package struct to hold redis conn
+type Cache struct {
+	Client *redis.Client
+}
 
-// Global redis client
-var Client *redis.Client
+// constructor to get a new *gotang.Cache
+// receives options for the redis DB.
+func New(opts *redis.Options) *Cache {
+	c := Cache{
+		Client: redis.NewClient(opts),
+	}
+	return &c
+}
 
-func Fetch(key string, block CacheBlock, generation_time int) (string, error) {
+// all cache methods must adhere to this type
+// must return (cache value, ttl, error)
+type FetchBlock func() (string, int, error)
+
+func (c *Cache) Fetch(key string, block FetchBlock, generation_time int) (string, error) {
 
 	// compute stale key
 	stale_key := key + ".stale"
 
 	// get both cache keys: The real one and the stale key
-	value, _ := Client.Get(key).Result()
-	stale, _ := Client.Get(stale_key).Result()
+	value, _ := c.Client.Get(key).Result()
+	stale, _ := c.Client.Get(stale_key).Result()
 
 	// if stale expired, it's time to regenerate our data
 	if stale == "" {
 
 		// update the stale key to make sure other requests server old cache
-		err := Client.PSetEx(stale_key, time.Duration(generation_time)*time.Second, "refreshing").Err()
+		err := c.Client.PSetEx(stale_key, time.Duration(generation_time)*time.Second, "refreshing").Err()
 		if err != nil {
 			return "", err
 		}
@@ -46,17 +58,18 @@ func Fetch(key string, block CacheBlock, generation_time int) (string, error) {
 			return "", blockErr
 		}
 
+		// use the block result as return value
 		value = blockValue
 
 		// set real cache to ttl plus fetch time
 		real_ttl := blockTtl + (generation_time * 2)
-		realErr := Client.PSetEx(key, time.Duration(real_ttl)*time.Second, value).Err()
+		realErr := c.Client.PSetEx(key, time.Duration(real_ttl)*time.Second, value).Err()
 		if realErr != nil {
 			return "", realErr
 		}
 
 		// set stale cache to just ttl so it triggers before cache
-		staleErr := Client.PSetEx(stale_key, time.Duration(blockTtl)*time.Second, "good").Err()
+		staleErr := c.Client.PSetEx(stale_key, time.Duration(blockTtl)*time.Second, "good").Err()
 		if staleErr != nil {
 			return "", staleErr
 		}
