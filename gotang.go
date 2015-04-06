@@ -7,11 +7,28 @@ import (
 	redis "gopkg.in/redis.v2"
 )
 
+// Structs
+// -------------------------------------------
+
 // Main package struct to hold redis conn
 type Cache struct {
 	Client   *redis.Client
 	Disabled bool
 }
+
+// Options to be used with the cache methods
+type Options struct {
+	Ttl       int
+	FetchTime int
+	Disabled  bool
+}
+
+// all cache methods must adhere to this type
+// must return (cache value, ttl, error)
+type FetchBlock func() (string, int, error)
+
+// Constructors
+// -------------------------------------------
 
 // constructor to get a new *gotang.Cache
 // receives options for the redis DB.
@@ -29,16 +46,8 @@ func NewDisabled() *Cache {
 	return &c
 }
 
-// all cache methods must adhere to this type
-// must return (cache value, ttl, error)
-type FetchBlock func() (string, int, error)
-
-// Options to be used with the cache methods
-type Options struct {
-	Ttl       int
-	FetchTime int
-	Disabled  bool
-}
+// Fetch
+// -------------------------------------------
 
 func (c *Cache) Fetch(key string, block FetchBlock, opts Options) (string, error) {
 
@@ -90,6 +99,9 @@ func (c *Cache) Fetch(key string, block FetchBlock, opts Options) (string, error
 	return value, nil
 }
 
+// Set
+// -------------------------------------------
+
 func (c *Cache) Set(key string, value string, opts Options) error {
 
 	// set stale cache to just ttl so it triggers before cache
@@ -108,6 +120,31 @@ func (c *Cache) Set(key string, value string, opts Options) error {
 	return nil
 }
 
+// Get
+// -------------------------------------------
+
+// Simple wrapper to get a number of keys in a single call.
+// This doesn't use the stale key, but reads the main key
+// directly. Assumes string values.
+func (c *Cache) GetAll(keys ...string) ([]string, error) {
+
+	vals, err := c.Client.MGet(keys...).Result()
+	if err != nil {
+		return []string{}, err
+	}
+
+	stringVals := []string{}
+	for i, _ := range vals {
+		stringVals = append(stringVals, vals[i].(string))
+	}
+	return stringVals, nil
+}
+
+// Helpers
+// -------------------------------------------
+
+// Helper function that returns the name of the stale key
+// based on the original key name.
 func (c *Cache) stalekey(key string) string {
 	return key + ".stale"
 }

@@ -38,102 +38,118 @@ func Sleep(secs int) {
 	time.Sleep(time.Duration(secs) * time.Second)
 }
 
-var _ = Describe("Fetch", func() {
+var _ = Describe("Gotang", func() {
 
-	// main time variable to adjust the speed of the test
-	t := 1
+	Context("#Fetch", func() {
 
-	It("caches response in redis", func() {
-		block := func() (string, int, error) {
-			v := strconv.Itoa(rand.Intn(50000))
-			return v, t * 5, nil
-		}
-		fetchedValue, err1 := cache.Fetch("mykey", block, gotang.Options{FetchTime: t})
-		cachedValue, err2 := cache.Fetch("mykey", block, gotang.Options{FetchTime: t})
-		Expect(err1).To(BeNil())
-		Expect(err2).To(BeNil())
-		Expect(fetchedValue).To(Equal(cachedValue))
-	})
+		// main time variable to adjust the speed of the test
+		t := 1
 
-	It("expires cache after ttl specified in block", func() {
-		block := func() (string, int, error) {
-			v := strconv.Itoa(rand.Intn(50000))
-			return v, t, nil
-		}
-		fetchedValue1, err1 := cache.Fetch("mykey", block, gotang.Options{FetchTime: t * 5})
-		cachedValue1, err2 := cache.Fetch("mykey", block, gotang.Options{FetchTime: t * 5})
-		Sleep(t * 2)
-		fetchedValue2, err3 := cache.Fetch("mykey", block, gotang.Options{FetchTime: t * 5})
-		Expect(err1).To(BeNil())
-		Expect(err2).To(BeNil())
-		Expect(err3).To(BeNil())
-		Expect(fetchedValue1).To(Equal(cachedValue1))
-		Expect(fetchedValue1).ToNot(Equal(fetchedValue2))
-	})
-
-	It("prevents dog pile effect", func() {
-
-		// make fetch block that takes 2 seconds and caches for 10 seconds
-		block := func() (string, int, error) {
-			v := strconv.Itoa(rand.Intn(50000))
-			Sleep(t * 2)
-			return v, t * 10, nil
-		}
-
-		// set cache to old value for a second and fetchtime of 2 seconds
-		cache.Set("mykey", "oldvalue", gotang.Options{
-			Ttl:       t,
-			FetchTime: t * 2,
+		It("caches response in redis", func() {
+			block := func() (string, int, error) {
+				v := strconv.Itoa(rand.Intn(50000))
+				return v, t * 5, nil
+			}
+			fetchedValue, err1 := cache.Fetch("mykey", block, gotang.Options{FetchTime: t})
+			cachedValue, err2 := cache.Fetch("mykey", block, gotang.Options{FetchTime: t})
+			Expect(err1).To(BeNil())
+			Expect(err2).To(BeNil())
+			Expect(fetchedValue).To(Equal(cachedValue))
 		})
 
-		// setup for 3 concurrent processes
-		messages := make(chan string, 2)
-		fun := func() {
-			value, err := cache.Fetch("mykey", block, gotang.Options{FetchTime: t * 2})
+		It("expires cache after ttl specified in block", func() {
+			block := func() (string, int, error) {
+				v := strconv.Itoa(rand.Intn(50000))
+				return v, t, nil
+			}
+			fetchedValue1, err1 := cache.Fetch("mykey", block, gotang.Options{FetchTime: t * 5})
+			cachedValue1, err2 := cache.Fetch("mykey", block, gotang.Options{FetchTime: t * 5})
+			Sleep(t * 2)
+			fetchedValue2, err3 := cache.Fetch("mykey", block, gotang.Options{FetchTime: t * 5})
+			Expect(err1).To(BeNil())
+			Expect(err2).To(BeNil())
+			Expect(err3).To(BeNil())
+			Expect(fetchedValue1).To(Equal(cachedValue1))
+			Expect(fetchedValue1).ToNot(Equal(fetchedValue2))
+		})
+
+		It("prevents dog pile effect", func() {
+
+			// make fetch block that takes 2 seconds and caches for 10 seconds
+			block := func() (string, int, error) {
+				v := strconv.Itoa(rand.Intn(50000))
+				Sleep(t * 2)
+				return v, t * 10, nil
+			}
+
+			// set cache to old value for a second and fetchtime of 2 seconds
+			cache.Set("mykey", "oldvalue", gotang.Options{
+				Ttl:       t,
+				FetchTime: t * 2,
+			})
+
+			// setup for 3 concurrent processes
+			messages := make(chan string, 2)
+			fun := func() {
+				value, err := cache.Fetch("mykey", block, gotang.Options{FetchTime: t * 2})
+				Expect(err).To(BeNil())
+				messages <- value
+			}
+
+			// first one should trigger cache
+			go func() {
+				Sleep(t)
+				fun()
+			}()
+
+			// second one should use old cache and finish before
+			go func() {
+
+				fun()
+			}()
+
+			Expect(<-messages).To(Equal("oldvalue"))    // second one
+			Expect(<-messages).ToNot(Equal("oldvalue")) // first one
+		})
+
+		It("ignores caching if globally disabled", func() {
+			disabledCache := gotang.NewDisabled()
+			block := func() (string, int, error) {
+				v := strconv.Itoa(rand.Intn(50000))
+				return v, t, nil
+			}
+			fetchedValue1, err1 := disabledCache.Fetch("mykey", block, gotang.Options{FetchTime: t * 3})
+			fetchedValue2, err2 := disabledCache.Fetch("mykey", block, gotang.Options{FetchTime: t * 3})
+			Expect(err1).To(BeNil())
+			Expect(err2).To(BeNil())
+			Expect(fetchedValue1).ToNot(Equal(fetchedValue2))
+		})
+
+		It("ignores caching if options disabled", func() {
+			block := func() (string, int, error) {
+				v := strconv.Itoa(rand.Intn(50000))
+				return v, t, nil
+			}
+			opts := gotang.Options{FetchTime: t * 3, Disabled: true}
+			fetchedValue1, err1 := cache.Fetch("mykey", block, opts)
+			fetchedValue2, err2 := cache.Fetch("mykey", block, opts)
+			Expect(err1).To(BeNil())
+			Expect(err2).To(BeNil())
+			Expect(fetchedValue1).ToNot(Equal(fetchedValue2))
+		})
+	})
+
+	Context("#GetAll", func() {
+
+		It("gets all keys", func() {
+			cache.Set("mykey1", "myvalue1", gotang.Options{Ttl: 5, FetchTime: 1})
+			cache.Set("mykey2", "myvalue2", gotang.Options{Ttl: 5, FetchTime: 1})
+			cache.Set("mykey3", "myvalue3", gotang.Options{Ttl: 5, FetchTime: 1})
+			vals, err := cache.GetAll("mykey1", "mykey2")
 			Expect(err).To(BeNil())
-			messages <- value
-		}
+			Expect(vals).To(ConsistOf("myvalue1", "myvalue2"))
+		})
 
-		// first one should trigger cache
-		go func() {
-			Sleep(t)
-			fun()
-		}()
-
-		// second one should use old cache and finish before
-		go func() {
-
-			fun()
-		}()
-
-		Expect(<-messages).To(Equal("oldvalue"))    // second one
-		Expect(<-messages).ToNot(Equal("oldvalue")) // first one
-	})
-
-	It("ignores caching if globally disabled", func() {
-		disabledCache := gotang.NewDisabled()
-		block := func() (string, int, error) {
-			v := strconv.Itoa(rand.Intn(50000))
-			return v, t, nil
-		}
-		fetchedValue1, err1 := disabledCache.Fetch("mykey", block, gotang.Options{FetchTime: t * 3})
-		fetchedValue2, err2 := disabledCache.Fetch("mykey", block, gotang.Options{FetchTime: t * 3})
-		Expect(err1).To(BeNil())
-		Expect(err2).To(BeNil())
-		Expect(fetchedValue1).ToNot(Equal(fetchedValue2))
-	})
-
-	It("ignores caching if options disabled", func() {
-		block := func() (string, int, error) {
-			v := strconv.Itoa(rand.Intn(50000))
-			return v, t, nil
-		}
-		opts := gotang.Options{FetchTime: t * 3, Disabled: true}
-		fetchedValue1, err1 := cache.Fetch("mykey", block, opts)
-		fetchedValue2, err2 := cache.Fetch("mykey", block, opts)
-		Expect(err1).To(BeNil())
-		Expect(err2).To(BeNil())
-		Expect(fetchedValue1).ToNot(Equal(fetchedValue2))
 	})
 
 	Context("#ParseRedisUrl", func() {
