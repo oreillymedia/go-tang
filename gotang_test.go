@@ -136,4 +136,20 @@ var _ = Describe("Fetch", func() {
 		Expect(fetchedValue1).ToNot(Equal(fetchedValue2))
 	})
 
+	Context("#ParseRedisUrl", func() {
+
+		It("handles real redis url", func() {
+			host, pw, _ := gotang.ParseRedisUrl("redis://:password@domain:port")
+			Expect(host).To(Equal("domain:port"))
+			Expect(pw).To(Equal("password"))
+		})
+
+		It("handles localhost url", func() {
+			host, pw, _ := gotang.ParseRedisUrl("redis://domain:port")
+			Expect(host).To(Equal("domain:port"))
+			Expect(pw).To(Equal(""))
+		})
+
+	})
+
 })

@@ -1,6 +1,7 @@
 package gotang
 
 import (
+	"net/url"
 	"time"
 
 	redis "gopkg.in/redis.v2"
@@ -73,7 +74,7 @@ func (c *Cache) Fetch(key string, block FetchBlock, opts Options) (string, error
 
 		// if fetch failed, return error
 		if blockErr != nil {
-			return "", blockErr
+			return blockValue, blockErr
 		}
 
 		// use the block result as return value
@@ -109,4 +110,22 @@ func (c *Cache) Set(key string, value string, opts Options) error {
 
 func (c *Cache) stalekey(key string) string {
 	return key + ".stale"
+}
+
+// Helper function to parse a Redis string and return the host and pw
+// needed for the redis options.
+func ParseRedisUrl(redisUrl string) (string, string, error) {
+
+	uri, uriErr := url.Parse(redisUrl)
+	if uriErr != nil {
+		return "", "", uriErr
+	}
+
+	var pwString string
+
+	if uri.User != nil {
+		pwString, _ = uri.User.Password()
+	}
+
+	return uri.Host, pwString, nil
 }
