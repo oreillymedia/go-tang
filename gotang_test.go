@@ -150,6 +150,14 @@ var _ = Describe("Gotang", func() {
 			Expect(vals).To(ConsistOf("myvalue1", "myvalue2"))
 		})
 
+		It("retains nil values as empty strings", func() {
+			cache.Set("mykey1", "myvalue1", gotang.Options{Ttl: 5, FetchTime: 1})
+			cache.Set("mykey3", "myvalue3", gotang.Options{Ttl: 5, FetchTime: 1})
+			vals, err := cache.GetAll("mykey1", "mykey2", "mykey3")
+			Expect(err).To(BeNil())
+			Expect(vals).To(ConsistOf("myvalue1", "", "myvalue3"))
+		})
+
 	})
 
 	Context("#ParseRedisUrl", func() {

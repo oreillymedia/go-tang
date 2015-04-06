@@ -135,7 +135,11 @@ func (c *Cache) GetAll(keys ...string) ([]string, error) {
 
 	stringVals := []string{}
 	for i, _ := range vals {
-		stringVals = append(stringVals, vals[i].(string))
+		if vals[i] == nil {
+			stringVals = append(stringVals, "")
+		} else {
+			stringVals = append(stringVals, vals[i].(string))
+		}
 	}
 	return stringVals, nil
 }
