@@ -125,9 +125,15 @@ func (c *Cache) Set(key string, value string, opts Options) error {
 
 // Simple wrapper to get a number of keys in a single call.
 // This doesn't use the stale key, but reads the main key
-// directly. Assumes string values.
+// directly.
 func (c *Cache) GetAll(keys ...string) ([]string, error) {
 
+	// if disabled, return an empty array of strings
+	if c.Disabled {
+		return make([]string, len(keys)), nil
+	}
+
+	// otherwise get from Redis
 	vals, err := c.Client.MGet(keys...).Result()
 	if err != nil {
 		return []string{}, err

@@ -15,6 +15,7 @@ import (
 )
 
 var cache *gotang.Cache
+var disabledCache *gotang.Cache
 
 func TestTest(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -28,6 +29,7 @@ var _ = BeforeSuite(func() {
 		Addr:    os.Getenv("REDIS_URL"),
 		Network: "tcp",
 	})
+	disabledCache = gotang.NewDisabled()
 })
 
 var _ = BeforeEach(func() {
@@ -113,7 +115,6 @@ var _ = Describe("Gotang", func() {
 		})
 
 		It("ignores caching if globally disabled", func() {
-			disabledCache := gotang.NewDisabled()
 			block := func() (string, int, error) {
 				v := strconv.Itoa(rand.Intn(50000))
 				return v, t, nil
@@ -156,6 +157,12 @@ var _ = Describe("Gotang", func() {
 			vals, err := cache.GetAll("mykey1", "mykey2", "mykey3")
 			Expect(err).To(BeNil())
 			Expect(vals).To(ConsistOf("myvalue1", "", "myvalue3"))
+		})
+
+		It("ignores caching if globally disabled", func() {
+			vals, err := disabledCache.GetAll("mykey1", "mykey2", "mykey3")
+			Expect(err).To(BeNil())
+			Expect(vals).To(ConsistOf("", "", ""))
 		})
 
 	})
