@@ -104,6 +104,11 @@ func (c *Cache) Fetch(key string, block FetchBlock, opts Options) (string, error
 
 func (c *Cache) Set(key string, value string, opts Options) error {
 
+	// if disabled, just return
+	if c.Disabled {
+		return nil
+	}
+
 	// set stale cache to just ttl so it triggers before cache
 	staleErr := c.Client.PSetEx(c.stalekey(key), time.Duration(opts.Ttl)*time.Second, "good").Err()
 	if staleErr != nil {
