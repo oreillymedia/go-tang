@@ -105,7 +105,7 @@ func (c *Cache) Fetch(key string, block FetchBlock, opts Options) (string, error
 func (c *Cache) Set(key string, value string, opts Options) error {
 
 	// if disabled, just return
-	if c.Disabled {
+	if c.Disabled || opts.Disabled {
 		return nil
 	}
 
@@ -131,10 +131,10 @@ func (c *Cache) Set(key string, value string, opts Options) error {
 // Simple wrapper to get a number of keys in a single call.
 // This doesn't use the stale key, but reads the main key
 // directly.
-func (c *Cache) GetAll(keys ...string) ([]string, error) {
+func (c *Cache) GetAll(keys []string, opts Options) ([]string, error) {
 
 	// if disabled, return an empty array of strings
-	if c.Disabled {
+	if c.Disabled || opts.Disabled {
 		return make([]string, len(keys)), nil
 	}
 

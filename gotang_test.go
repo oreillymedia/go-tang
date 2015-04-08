@@ -146,23 +146,23 @@ var _ = Describe("Gotang", func() {
 			cache.Set("mykey1", "myvalue1", gotang.Options{Ttl: 5, FetchTime: 1})
 			cache.Set("mykey2", "myvalue2", gotang.Options{Ttl: 5, FetchTime: 1})
 			cache.Set("mykey3", "myvalue3", gotang.Options{Ttl: 5, FetchTime: 1})
-			vals, err := cache.GetAll("mykey1", "mykey2")
+			vals, err := cache.GetAll([]string{"mykey1", "mykey2"}, gotang.Options{})
 			Expect(err).To(BeNil())
-			Expect(vals).To(ConsistOf("myvalue1", "myvalue2"))
+			Expect(vals).To(Equal([]string{"myvalue1", "myvalue2"}))
 		})
 
 		It("retains nil values as empty strings", func() {
 			cache.Set("mykey1", "myvalue1", gotang.Options{Ttl: 5, FetchTime: 1})
 			cache.Set("mykey3", "myvalue3", gotang.Options{Ttl: 5, FetchTime: 1})
-			vals, err := cache.GetAll("mykey1", "mykey2", "mykey3")
+			vals, err := cache.GetAll([]string{"mykey1", "mykey2", "mykey3"}, gotang.Options{})
 			Expect(err).To(BeNil())
-			Expect(vals).To(ConsistOf("myvalue1", "", "myvalue3"))
+			Expect(vals).To(Equal([]string{"myvalue1", "", "myvalue3"}))
 		})
 
 		It("ignores caching if globally disabled", func() {
-			vals, err := disabledCache.GetAll("mykey1", "mykey2", "mykey3")
+			vals, err := disabledCache.GetAll([]string{"mykey1", "mykey2", "mykey3"}, gotang.Options{})
 			Expect(err).To(BeNil())
-			Expect(vals).To(ConsistOf("", "", ""))
+			Expect(vals).To(Equal([]string{"", "", ""}))
 		})
 
 	})
